@@ -1,0 +1,22 @@
+{
+  "name": "portfolio-importer",
+  "author": "Your Name",
+  "url": "https://github.com/yourusername/siyuan-portfolio-widget",
+  "version": "1.0.0",
+  "minAppVersion": "2.8.8",
+  "displayName": {
+    "default": "Portfolio Importer",
+    "zh_CN": "投资组合导入器"
+  },
+  "description": {
+    "default": "Import portfolio data from CSV into SiYuan notes",
+    "zh_CN": "从 CSV 文件导入投资组合数据到思源笔记"
+  },
+  "readme": {
+    "default": "README.md",
+    "zh_CN": "README_zh_CN.md"
+  },
+  "funding": {
+    "custom": []
+  }
+}

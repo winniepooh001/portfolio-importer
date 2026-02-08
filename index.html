@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio Importer - Unified System</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="widget-container">
+        <div class="config-section">
+            <header>
+                <h2>📊 投资组合导入器</h2>
+                <span class="version">v3.0 · Unified</span>
+            </header>
+            
+            <div class="config-item">
+                <label for="targetDocId">目标文档 ID</label>
+                <input type="text" id="targetDocId" value="思源文档 ID" placeholder="输入思源文档 ID...">
+                <small>💡 在思源笔记中，右键文档 → 复制块引用 → 粘贴以获取 ID</small>
+            </div>
+            
+            <div class="button-group">
+                <button id="workBtn" class="primary-btn">
+                    <span class="icon">🔄</span> 更新投资组合数据
+                </button>
+                
+                <button id="importNewsBtn" class="secondary-btn">
+                    <span class="icon">📰</span> 导入新闻
+                </button>
+                
+                <button id="importChartBtn" class="secondary-btn">
+                    <span class="icon">📊</span> 导入交互式图表
+                </button>
+            </div>
+            
+            <div class="divider"></div>
+            
+            <button id="fullImportBtn" class="full-btn">
+                <span class="icon">🚀</span> 一键完整导入 (数据 + 新闻 + 图表)
+            </button>
+        </div>
+
+        <div class="info-section">
+            <h3>📝 使用说明</h3>
+            <ul>
+                <li><strong>更新投资组合数据</strong>: 运行 Python 脚本，更新 CSV 文件</li>
+                <li><strong>导入新闻</strong>: 将最新新闻作为 Markdown 追加到文档</li>
+                <li><strong>导入交互式图表</strong>: 嵌入可交互的 HTML 可视化图表</li>
+                <li><strong>一键完整导入</strong>: 依次执行上述三个步骤</li>
+            </ul>
+            
+            <h3>📂 文件结构</h3>
+            <ul>
+                <li><code>portfolio_history_unified.csv</code> - 主数据（持仓、板块、风险类别、盈亏、股息）</li>
+                <li><code>portfolio_news_history.csv</code> - 新闻数据（每个标的5条最新新闻）</li>
+                <li><code>portfolio_sectors_unified.html</code> - 交互式可视化图表</li>
+            </ul>
+        </div>
+
+        <div class="log-container">
+            <div class="log-header">
+                <span>执行日志</span>
+                <button onclick="clearLogs()" class="clear-btn">清空</button>
+            </div>
+            <div id="logOutput" class="log-content">等待指令...</div>
+        </div>
+    </div>
+
+    <!-- 引入逻辑脚本 -->
+    <script src="widget.js"></script>
+</body>
+</html>
