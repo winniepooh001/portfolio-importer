@@ -1,4 +1,12 @@
 # 📊 Siyuan Portfolio Importer Widget
+
+## 📖 The Story Behind the Project / 项目背景
+
+> **"From Fragmented Trades to a Single Decision System"** > I wrote a detailed article about why I built this tool and how it transformed my investment workflow.  
+> 👉 [Read the full story on Medium](https://medium.com/@wintersweet001/from-fragmented-trades-to-a-single-decision-system-047b5fb29c9e)
+
+> **“从碎片化交易到统一决策系统”** > 我写了一篇详细的文章，介绍了为什么要开发这个工具，以及它如何改变了我的投资流程。  
+> 👉 [在 Medium 上阅读全文](https://medium.com/@wintersweet001/from-fragmented-trades-to-a-single-decision-system-047b5fb29c9e)
 ### 思源笔记投资组合导入挂件
 
 [English](#-english) | [简体中文](#-简体中文)
