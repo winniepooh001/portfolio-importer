@@ -1,10 +1,9 @@
 /**
- * Portfolio Importer Widget - Unified System (Optimized)
- * After running "Update Portfolio", news and chart import work independently
+ * Portfolio Importer Widget - Unified System
+ * Works with portfolio_history_unified.csv and portfolio_news_history.csv
  */
 
 const BRIDGE_URL = "http://127.0.0.1:5000/run-task";
-const SIYUAN_STORAGE_PATH = "/data/storage/petal/portfolio-importer";
 const logOutput = document.getElementById('logOutput');
 const workBtn = document.getElementById('workBtn');
 const importNewsBtn = document.getElementById('importNewsBtn');
@@ -33,8 +32,8 @@ async function runPortfolioUpdate() {
     log("🚀 开始执行投资组合数据更新...", "info");
 
     try {
-        // 调用 Python Bridge 运行更新脚本（现在会同时生成数据、新闻和图表）
-        log("📡 正在运行 portfolio_exposure.py...", "info");
+        // 调用 Python Bridge 运行更新脚本
+        log("📡 正在运行 portfolio_exposure_unified.py...", "info");
         const bridgeRes = await fetch(BRIDGE_URL, { 
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -53,14 +52,8 @@ async function runPortfolioUpdate() {
             throw new Error(`Python 脚本错误: ${pyResult.message}`);
         }
 
-        log("✅ portfolio_history_unified.csv 已生成", "success");
-        log("✅ portfolio_news_history.csv 已生成", "success");
-        
-        if (pyResult.chart_status === 'success') {
-            log("✅ portfolio_sectors_unified.html 已生成", "success");
-        } else if (pyResult.chart_status === 'warning') {
-            log("⚠️ 图表生成有警告，但数据已完成", "warning");
-        }
+        log("✅ portfolio_history_unified.csv 已更新", "success");
+        log("✅ portfolio_news_history.csv 已更新", "success");
         
         if (pyResult.summary) {
             log(`📊 投资组合概览:`, "info");
@@ -70,7 +63,7 @@ async function runPortfolioUpdate() {
             log(`   持仓数: ${pyResult.summary.position_count}`, "default");
         }
 
-        log("💡 提示: 现在可以导入新闻或图表到思源笔记（无需 bridge 运行）", "info");
+        log("💡 提示: 现在可以导入新闻或图表到思源笔记", "info");
 
     } catch (e) {
         log(`❌ 失败: ${e.message}`, "error");
@@ -95,57 +88,64 @@ async function importNewsToSiyuan() {
     log("📰 开始导入最新新闻到思源笔记...", "info");
 
     try {
-        // 直接从本地 Siyuan 存储读取新闻文件
-        log("📂 正在读取本地新闻数据...", "info");
-        const newsPath = `${SIYUAN_STORAGE_PATH}/portfolio_news_history.csv`;
-        
-        // 读取文件内容
-        const fileRes = await fetch(newsPath);
-        if (!fileRes.ok) {
-            throw new Error(`无法读取新闻文件: ${newsPath}. 请先运行"更新投资组合数据"`);
-        }
-        
-        const csvText = await fileRes.text();
-        
-        // 解析 CSV (pipe-delimited)
-        const newsData = parseNewsCSV(csvText);
-        
-        if (!newsData || newsData.length === 0) {
-            throw new Error('新闻数据为空');
+        // 1. 从 Python Bridge 获取最新新闻数据
+        log("📡 正在获取最新新闻数据...", "info");
+        const newsRes = await fetch("http://127.0.0.1:5000/get-latest-news", {
+            method: "GET"
+        });
+
+        if (!newsRes.ok) {
+            throw new Error(`HTTP错误: ${newsRes.status}`);
         }
 
-        // 构建 Markdown 内容
+        const newsData = await newsRes.json();
+
+        if (newsData.status !== 'success') {
+            throw new Error(`获取新闻失败: ${newsData.message}`);
+        }
+
+        // 2. 构建 Markdown 内容
         log("📝 正在构建 Markdown 格式...", "info");
-        const date = newsData[0].Date; // 获取最新日期
-        
+        const newsItems = newsData.news;
+        const date = newsData.date;
+
         let fullMd = `\n---\n# 📈 Portfolio News Update (${date})\n\n`;
 
-        for (const item of newsData) {
-            const ticker = item.ticker;
-            const thesis = item.thesis;
+        for (const item of newsItems) {
+            const { ticker, symbol_info, thesis } = item;
             
             log(`处理新闻: ${ticker}`, "default");
 
             // Format ticker with thesis link if available
             let tickerDisplay = ticker;
             if (thesis && thesis.trim()) {
+                // Create Siyuan block reference: ((block_id 'Display Text'))
                 tickerDisplay = `((${thesis} '${ticker}'))`;
                 log(`  ✓ 已链接到论文: ${thesis}`, "default");
             }
 
-            fullMd += `## ${tickerDisplay}\n\n`;
+            fullMd += `## ${tickerDisplay}`;
+            
+            if (symbol_info) {
+                fullMd += ` · ${symbol_info.sector || 'N/A'}`;
+                if (symbol_info.earnings_date) {
+                    fullMd += ` · 📅 ${symbol_info.earnings_date}`;
+                }
+            }
+            
+            fullMd += `\n\n`;
 
             // 添加新闻链接
             let hasNews = false;
             for (let i = 1; i <= 5; i++) {
                 const title = item[`news_${i}_title`];
-                const newsDate = item[`news_${i}_date`];
+                const date = item[`news_${i}_date`];
                 const link = item[`news_${i}_link`];
 
                 if (title && title.trim() && link && link.trim()) {
                     fullMd += `- [${title.trim()}](${link.trim()})`;
-                    if (newsDate && newsDate.trim()) {
-                        fullMd += ` · ${newsDate.trim()}`;
+                    if (date && date.trim()) {
+                        fullMd += ` · ${date.trim()}`;
                     }
                     fullMd += `\n`;
                     hasNews = true;
@@ -159,7 +159,7 @@ async function importNewsToSiyuan() {
             fullMd += `\n`;
         }
 
-        // 调用思源 API 追加块
+        // 3. 调用思源 API 追加块
         log("📤 正在同步到思源笔记...", "info");
         const appendRes = await fetch("/api/block/appendBlock", {
             method: "POST",
@@ -174,8 +174,8 @@ async function importNewsToSiyuan() {
         const appendData = await appendRes.json();
 
         if (appendData.code === 0) {
-            const linkedCount = newsData.filter(item => item.thesis && item.thesis.trim()).length;
-            log(`🎉 新闻导入成功！已添加 ${newsData.length} 个持仓的新闻`, "success");
+            const linkedCount = newsItems.filter(item => item.thesis && item.thesis.trim()).length;
+            log(`🎉 新闻导入成功！已添加 ${newsItems.length} 个持仓的新闻`, "success");
             if (linkedCount > 0) {
                 log(`🔗 其中 ${linkedCount} 个已链接到投资论文`, "success");
             }
@@ -206,23 +206,52 @@ async function importChartToSiyuan() {
     log("📊 开始导入交互式图表...", "info");
 
     try {
-        // 直接使用本地路径
-        const chartPath = `${SIYUAN_STORAGE_PATH}/portfolio_sectors_unified.html`;
-        
-        log("📂 检查图表文件...", "info");
-        
-        // 验证文件存在
-        const testRes = await fetch(chartPath, { method: 'HEAD' });
-        if (!testRes.ok) {
-            throw new Error(`图表文件不存在: ${chartPath}. 请先运行"更新投资组合数据"`);
+        // 1. 生成可视化图表
+        log("📡 正在生成可视化图表...", "info");
+        const chartRes = await fetch("http://127.0.0.1:5000/generate-chart", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" }
+        });
+
+        if (!chartRes.ok) {
+            throw new Error(`HTTP错误: ${chartRes.status}`);
         }
-        
-        log("✅ 图表文件已找到", "success");
 
-        // 构建 iframe HTML 嵌入代码
-        const iframeHtml = `\n<iframe src="${chartPath}" width="100%" height="950px" style="border:none; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"></iframe>\n`;
+        const chartData = await chartRes.json();
 
-        // 追加到思源文档
+        if (chartData.status !== 'success') {
+            throw new Error(`生成图表失败: ${chartData.message}`);
+        }
+
+        log("✅ 图表已生成", "success");
+
+        // 2. 获取图表文件路径并复制到思源 assets
+        log("📤 正在复制图表到思源 assets 目录...", "info");
+        const copyRes = await fetch("http://127.0.0.1:5000/copy-chart-to-siyuan", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                chart_path: chartData.chart_path
+            })
+        });
+
+        if (!copyRes.ok) {
+            throw new Error(`HTTP错误: ${copyRes.status}`);
+        }
+
+        const copyData = await copyRes.json();
+
+        if (copyData.status !== 'success') {
+            throw new Error(`复制失败: ${copyData.message}`);
+        }
+
+        const assetPath = copyData.asset_path;
+        log(`✅ 图表已复制到: ${assetPath}`, "success");
+
+        // 3. 构建 iframe HTML 嵌入代码
+        const iframeHtml = `\n<iframe src="${assetPath}" width="100%" height="950px" style="border:none; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"></iframe>\n`;
+
+        // 4. 追加到思源文档
         log("📤 正在嵌入图表到思源笔记...", "info");
         const appendRes = await fetch("/api/block/appendBlock", {
             method: "POST",
@@ -275,12 +304,9 @@ async function importFullPortfolio() {
     log("🚀 开始执行完整导入流程...", "info");
 
     try {
-        // Step 1: 更新数据（这会生成所有文件）
+        // Step 1: 更新数据
         log("\n=== 步骤 1/3: 更新投资组合数据 ===", "info");
         await runPortfolioUpdate();
-        
-        // 等待一小段时间确保文件写入完成
-        await new Promise(resolve => setTimeout(resolve, 1000));
         
         // Step 2: 导入新闻
         log("\n=== 步骤 2/3: 导入新闻 ===", "info");
@@ -301,37 +327,6 @@ async function importFullPortfolio() {
         importNewsBtn.disabled = false;
         importChartBtn.disabled = false;
     }
-}
-
-// ============================================
-// 辅助函数: 解析新闻 CSV
-// ============================================
-function parseNewsCSV(csvText) {
-    const lines = csvText.trim().split('\n');
-    if (lines.length < 2) return [];
-    
-    // 第一行是 header
-    const headers = lines[0].split('|').map(h => h.trim());
-    
-    // 解析数据行
-    const data = [];
-    for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split('|');
-        if (values.length !== headers.length) continue;
-        
-        const row = {};
-        headers.forEach((header, index) => {
-            row[header] = values[index] ? values[index].trim() : '';
-        });
-        
-        data.push(row);
-    }
-    
-    // 只返回最新日期的数据
-    if (data.length === 0) return [];
-    
-    const latestDate = data[0].Date;
-    return data.filter(row => row.Date === latestDate);
 }
 
 // 绑定按钮事件
